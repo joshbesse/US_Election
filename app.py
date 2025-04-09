@@ -188,7 +188,11 @@ def render_comparison_breakdown(df_year1, df_result1, df_year2, df_result2):
     render_swings(df_year1, df_year2)
 
 # set wide page layout
-st.set_page_config(layout='wide')
+st.set_page_config(
+    layout='wide',
+    page_title='US Election Results',
+    page_icon='🇺🇸'
+)
 
 # toggle button for toggling between standard page and map comparison page
 toggle = st.toggle("Election Map Comparison")
