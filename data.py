@@ -32,7 +32,7 @@ def format_hover_text(row, candidates):
     return header + line1 + "<br>" + line2 + "</span>"
 
 # load US election data (by state)
-df = pd.read_csv('./dataverse_files/1976-2020-president.csv')
+df = pd.read_csv('./data/1976-2020-president.csv')
 df2 = pd.read_excel('./data/2024_Election.xlsx')
 
 # drop unnecessary columns
