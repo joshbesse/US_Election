@@ -33,6 +33,7 @@ def format_hover_text(row, candidates):
 
 # load US election data (by state)
 df = pd.read_csv('./dataverse_files/1976-2020-president.csv')
+df2 = pd.read_excel('./data/2024_Election.xlsx')
 
 # drop unnecessary columns
 df.drop(['state_fips', 'state_cen', 'state_ic', 'office', 'writein', 'version', 'notes', 'party_detailed'], axis=1, inplace=True)
@@ -44,8 +45,18 @@ df = df.rename(columns={'state_po': 'state_code', 'party_simplified': 'party'})
 df = df[(df['party'] == 'DEMOCRAT') | (df['party'] == 'REPUBLICAN')]
 df = df[(df['candidate'] != 'OTHER') & (~df['candidate'].isna())]
 
+# filter out DISTRICT OF COLUMBIA rows
+df = df[df['state'] != 'DISTRICT OF COLUMBIA']
+
+# concat 1976-2020 data with 2024 data
+df = pd.concat([df, df2])
+
 # calculate percentage of votes candidate received'OTHER'
-df['pctvotes'] = (df['candidatevotes'] / df['totalvotes'] * 100).round(1) 
+df['pctvotes'] = (df['candidatevotes'] / df['totalvotes'] * 100).round(1)
+
+# specify if pctvotes is for democratic or republican candidate
+df['pctvotes_Dem'] = df.apply(lambda row: row['pctvotes'] if row['party'] == 'DEMOCRAT' else None, axis=1)
+df['pctvotes_Rep'] = df.apply(lambda row: row['pctvotes'] if row['party'] == 'REPUBLICAN' else None, axis=1)
 
 # create pivot dataset for each year -> one row per state (increase app performance by limiting repeated data manipulation in app)
 # loop through each year
@@ -57,19 +68,26 @@ for year in df['year'].unique():
     pivot = df_year.pivot_table(
         index=['state', 'state_code'],
         columns='candidate',
-        values=['pctvotes', 'candidatevotes', 'party'],
+        values=['pctvotes', 'candidatevotes', 'party', 'pctvotes_Dem', 'pctvotes_Rep'],
         aggfunc='first'
     ).reset_index()
 
     # flatten multi-index columns
-    pivot.columns = ['_'.join([part for part in col if part]).strip() if isinstance(col, tuple) else col for col in pivot.columns]
+    pivot.columns = [
+        col[0] if col[0].startswith('pctvotes_') else '_'.join([part for part in col if part]).strip()
+        if isinstance(col, tuple) else col
+        for col in pivot.columns
+    ]
 
     # calculate winning candidate (based on percentage of votes received)
-    candidates = df_year['candidate'].unique()
-    pivot['winning_party'] = pivot.apply(lambda row: row[f'party_{candidates[0]}'] if row[f'pctvotes_{candidates[0]}'] > row[f'pctvotes_{candidates[1]}'] else row[f'party_{candidates[1]}'], axis=1)
+    pivot['winning_party'] = pivot.apply(lambda row: 'DEMOCRAT' if row['pctvotes_Dem'] > row['pctvotes_Rep'] else 'REPUBLICAN', axis=1)
+
+    # calculate difference in voting percentages (how contested was the state)
+    pivot['abs_margin'] = abs(pivot['pctvotes_Dem'] - pivot['pctvotes_Rep'])
+    pivot['margin'] = pivot['pctvotes_Dem'] - pivot['pctvotes_Rep']
 
     # create hover text for map (displayed when state is hovered on the map)
-    pivot['hover_text'] = pivot.apply(lambda row: format_hover_text(row, candidates), axis=1)
+    pivot['hover_text'] = pivot.apply(lambda row: format_hover_text(row, df_year['candidate'].unique()), axis=1)
 
     # save dataset for each year
     pivot.to_pickle(f'./data/{year}_election.pkl')
