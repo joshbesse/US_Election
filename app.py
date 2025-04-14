@@ -194,6 +194,15 @@ st.set_page_config(
     page_icon='🇺🇸'
 )
 
+# remove top white space
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 2.5rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # toggle button for toggling between standard page and map comparison page
 toggle = st.toggle("Election Map Comparison")
 
